@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# divellaeasy_auto_login.py - Versione con chiavi valide
+# divellaeasy_auto_login.py - Versione con endpoint /scrape
 
 import os
 import time
@@ -14,9 +14,8 @@ from datetime import datetime
 from datasets import load_dataset
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# ================ CHIAVI BROWSERLESS VALIDE (115 chiavi) ====================
+# ================ CHIAVI BROWSERLESS ====================
 BROWSERLESS_KEYS = [
-    # Gruppo 1 (8 chiavi)
     "2UG2Kr3Ev0Et10H6375736942b66d1362dab8cc6d6246d5c9",
     "2UG2LQjFiNAZRk9c8bcd27101634fe29dc0790dc424f20428",
     "2UG2N7qWFYK8FpG61e2f9913ec3368d2f02f87839db356dcc",
@@ -25,16 +24,12 @@ BROWSERLESS_KEYS = [
     "2UG2RgbTdpVTYBOf5942d35cd9f3da7b52af0bd115b1b3bdf",
     "2UG2TlpDxsQJn2Wd1f204756127d4ac2136b41bd01baaa0ca",
     "2UG2VwLUuefvx2T691bc9e7bd958eaebca5928b349ccdb6b0",
-    
-    # Gruppo 2 (6 chiavi)
     "2UGdbQnmFCJwS9Vd714eb85438cf63d00a8f878a898cfe865",
     "2UGdcalCbtmQNCt0c0a65e134b1833ed5d77b0c27fec4df7a",
     "2UGdeyvPnuYf2tm78f5d97e862f004feef3a8e41dfd58b3ef",
     "2UGdfrLYfztPfpy65ea1648786cdfe855a89073f49a24fa15",
     "2UGdh0XeC72wcccb12714bdae43194a6a8647ce9a836d9cf9",
     "2UGdiXdiszEa5rw5c83ff671b0f30e6b45cb159d1b7a8f221",
-    
-    # Gruppo 3 (29 chiavi)
     "2UH1q8Mnj1ERdcZf243e8d19a8e05da8998570d64e212cc3a",
     "2UH1rvpwwnyIqKYf3d2b847c23f1bf100eb78217b4abe399e",
     "2UH1tCPjVWSuutr98a6d9529fb8c03b457496afe6466ebac0",
@@ -64,8 +59,6 @@ BROWSERLESS_KEYS = [
     "2UH2eKbGQKuIYUXcad0304cb6e5bee0b0c403afdbb45eb29e",
     "2UH2gUfSx5xbV8v5c1782e505ebd7c097193963887490ccf2",
     "2UH2hBN40tQzuef302dcb8aa91dbe6770856a538edbfb6673",
-    
-    # Gruppo 4 (72 chiavi)
     "2UFyHOdxsID23VMa0518a22c6b683ea3c11c1bdca148d5381",
     "2UIAHVuiTuotW5oa9a17ea35ffa0b176467ae249cb2e9c21d",
     "2UIAQdOwydhP3Llb1273217561612b92c0eceaf555cc3726b",
@@ -140,7 +133,7 @@ BROWSERLESS_KEYS = [
     "2UICRMpGaWJQKP954bdcecee3ff7068055ac6c06af038c9e1",
 ]
 
-BROWSERLESS_URL = "https://production-sfo.browserless.io/chrome/bql"
+BROWSERLESS_URL = "https://production-sfo.browserless.io/function"
 
 # Account EasyHits4U
 EASYHITS_EMAIL = "sandrominori50+Uinrzrgtlqe@gmail.com"
@@ -177,61 +170,55 @@ def do_login():
     for attempt in range(len(BROWSERLESS_KEYS)):
         api_key = get_next_key()
         
-        query = f"""
-mutation {{
-  goto(url: "https://www.easyhits4u.com/logon/", waitUntil: networkIdle, timeout: 180000) {{
-    status
-  }}
-  solve(type: cloudflare, timeout: 180000) {{
-    solved
-    token
-    time
-  }}
-  typeUsername: type(selector: "input[name='username']", text: "{EASYHITS_EMAIL}") {{
-    time
-  }}
-  typePassword: type(selector: "input[name='password']", text: "{EASYHITS_PASSWORD}") {{
-    time
-  }}
-  clickSubmit: click(selector: "button[type='submit'], input[type='submit']", timeout: 60000) {{
-    time
-  }}
-  waitForNavigation(timeout: 60000) {{
-    url
-    status
-  }}
-}}
-"""
+        # Usa /function invece di /chrome/bql
+        url = f"{BROWSERLESS_URL}?token={api_key}"
         
-        url = f"{BROWSERLESS_URL}?token={api_key}&stealth=true&proxy=residential&proxyCountry=it"
+        # Codice Puppeteer da eseguire
+        code = f"""
+        module.exports = async ({{ page, context }}) => {{
+            await page.goto('https://www.easyhits4u.com/logon/', {{ waitUntil: 'networkidle', timeout: 180000 }});
+            
+            // Risoluzione Turnstile
+            await page.waitForFunction('typeof turnstile !== "undefined"', {{ timeout: 60000 }});
+            await page.evaluate(() => {{
+                const widget = document.querySelector('.cf-turnstile');
+                if (widget && window.turnstile) {{
+                    window.turnstile.render(widget);
+                }}
+            }});
+            await page.waitForTimeout(10000);
+            
+            // Compila form
+            await page.type('input[name="username"]', '{EASYHITS_EMAIL}', {{ delay: 50 }});
+            await page.type('input[name="password"]', '{EASYHITS_PASSWORD}', {{ delay: 50 }});
+            
+            // Clicca submit
+            await page.click('button[type="submit"], input[type="submit"]');
+            
+            // Attendi navigazione
+            await page.waitForNavigation({{ timeout: 60000 }});
+            
+            // Ottieni cookie
+            const cookies = await page.cookies();
+            return {{ cookies }};
+        }};
+        """
         
         try:
-            log(f"   📡 Invio richiesta a Browserless (timeout 300s)...")
-            response = requests.post(url, json={"query": query}, timeout=300)
+            log(f"   📡 Invio richiesta a Browserless /function...")
+            response = requests.post(url, json={"code": code}, timeout=180)
             log(f"   📡 Status code: {response.status_code}")
             
             if response.status_code != 200:
                 log(f"   ❌ HTTP {response.status_code}")
-                if response.status_code == 401:
-                    log(f"      ⚠️ Chiave senza crediti!")
                 continue
             
             data = response.json()
-            if "errors" in data:
-                log(f"   ❌ BQL error: {data['errors']}")
+            if "error" in data:
+                log(f"   ❌ Errore: {data['error']}")
                 continue
             
-            solve_info = data.get("data", {}).get("solve", {})
-            log(f"   🛡️ Turnstile solved: {solve_info.get('solved')}")
-            
-            if not solve_info.get("solved"):
-                log(f"   ❌ Turnstile non risolto")
-                continue
-            
-            nav_info = data.get("data", {}).get("waitForNavigation", {})
-            log(f"   🧭 Navigazione: status={nav_info.get('status')}, url={nav_info.get('url')}")
-            
-            cookies = response.cookies.get_dict()
+            cookies = data.get("cookies", {})
             log(f"   🍪 Cookie ricevuti: {list(cookies.keys())}")
             
             if 'user_id' in cookies:
@@ -241,7 +228,7 @@ mutation {{
                 log(f"   ❌ user_id non trovato nei cookie")
                 
         except requests.exceptions.Timeout:
-            log(f"   ❌ Timeout (300s) - Browserless non risponde")
+            log(f"   ❌ Timeout")
         except Exception as e:
             log(f"   ❌ Eccezione: {e}")
             continue
@@ -312,7 +299,7 @@ def load_dataset_hf():
         log(f"❌ Errore dataset: {e}")
         return False
 
-# ================ FUNZIONI PER IL SURF =====================
+# ================ FUNZIONI PER IL SURF (invariate) =====================
 def centra_figura(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     _, thresh = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY_INV)
@@ -383,7 +370,7 @@ def crop_safe(img, coords):
     y2 = max(0, min(h, y2))
     if x2 <= x1 or y2 <= y1:
         return None
-    return img[y1:y2, x1:x2]  # CORRETTO!
+    return img[y1:y2, x1:x2]
 
 def salva_errore(qpic, img, picmap, labels, chosen_idx, motivo, urlid=None):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
