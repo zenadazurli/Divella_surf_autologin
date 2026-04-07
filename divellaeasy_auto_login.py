@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# divellaeasy_auto_login.py - Versione finale per Render
+# divellaeasy_auto_login.py - Versione con timeout aumentati
 
 import os
 import time
@@ -102,10 +102,10 @@ def do_login():
         
         query = f"""
 mutation {{
-  goto(url: "https://www.easyhits4u.com/logon/", waitUntil: networkIdle, timeout: 120000) {{
+  goto(url: "https://www.easyhits4u.com/logon/", waitUntil: networkIdle, timeout: 180000) {{
     status
   }}
-  solve(type: cloudflare, timeout: 120000) {{
+  solve(type: cloudflare, timeout: 180000) {{
     solved
     token
     time
@@ -116,7 +116,7 @@ mutation {{
   typePassword: type(selector: "input[name='password']", text: "{EASYHITS_PASSWORD}") {{
     time
   }}
-  clickSubmit: click(selector: "form[action='/logon/'] input[type='submit']") {{
+  clickSubmit: click(selector: "button[type='submit'], input[type='submit']", timeout: 60000) {{
     time
   }}
 }}
@@ -125,8 +125,8 @@ mutation {{
         url = f"{BROWSERLESS_URL}?token={api_key}&stealth=true&proxy=residential&proxyCountry=it"
         
         try:
-            log(f"   📡 Invio richiesta a Browserless (timeout 180s)...")
-            response = requests.post(url, json={"query": query}, timeout=180)
+            log(f"   📡 Invio richiesta a Browserless (timeout 300s)...")
+            response = requests.post(url, json={"query": query}, timeout=300)
             log(f"   📡 Status code: {response.status_code}")
             
             if response.status_code != 200:
@@ -157,7 +157,7 @@ mutation {{
                 log(f"   ❌ user_id non trovato nei cookie")
                 
         except requests.exceptions.Timeout:
-            log(f"   ❌ Timeout (180s) - Browserless non risponde")
+            log(f"   ❌ Timeout (300s) - Browserless non risponde")
         except Exception as e:
             log(f"   ❌ Eccezione: {e}")
             continue
