@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# divellaeasy_auto_login.py - Versione con timeout aumentati
+# divellaeasy_auto_login.py - Versione finale con waitForNavigation
 
 import os
 import time
@@ -119,6 +119,10 @@ mutation {{
   clickSubmit: click(selector: "button[type='submit'], input[type='submit']", timeout: 60000) {{
     time
   }}
+  waitForNavigation(timeout: 60000) {{
+    url
+    status
+  }}
 }}
 """
         
@@ -146,6 +150,10 @@ mutation {{
             if not solve_info.get("solved"):
                 log(f"   ❌ Turnstile non risolto")
                 continue
+            
+            # Verifica navigazione
+            nav_info = data.get("data", {}).get("waitForNavigation", {})
+            log(f"   🧭 Navigazione: status={nav_info.get('status')}, url={nav_info.get('url')}")
             
             cookies = response.cookies.get_dict()
             log(f"   🍪 Cookie ricevuti: {list(cookies.keys())}")
