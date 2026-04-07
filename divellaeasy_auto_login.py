@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# divellaeasy_auto_login.py - Versione con endpoint /scrape
+# divellaeasy_auto_login.py - Versione con ScraperAPI
 
 import os
 import time
@@ -10,145 +10,26 @@ import faiss
 import json
 import gc
 import threading
+import re
 from datetime import datetime
 from datasets import load_dataset
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# ================ CHIAVI BROWSERLESS ====================
-BROWSERLESS_KEYS = [
-    "2UG2Kr3Ev0Et10H6375736942b66d1362dab8cc6d6246d5c9",
-    "2UG2LQjFiNAZRk9c8bcd27101634fe29dc0790dc424f20428",
-    "2UG2N7qWFYK8FpG61e2f9913ec3368d2f02f87839db356dcc",
-    "2UG2Ovzb5pkwkdua0d400b43082a6ad138fc947b98ad962ba",
-    "2UG2QjLUmcxfw9Kfc631f82350b42772cfe9291bfbaf2ed27",
-    "2UG2RgbTdpVTYBOf5942d35cd9f3da7b52af0bd115b1b3bdf",
-    "2UG2TlpDxsQJn2Wd1f204756127d4ac2136b41bd01baaa0ca",
-    "2UG2VwLUuefvx2T691bc9e7bd958eaebca5928b349ccdb6b0",
-    "2UGdbQnmFCJwS9Vd714eb85438cf63d00a8f878a898cfe865",
-    "2UGdcalCbtmQNCt0c0a65e134b1833ed5d77b0c27fec4df7a",
-    "2UGdeyvPnuYf2tm78f5d97e862f004feef3a8e41dfd58b3ef",
-    "2UGdfrLYfztPfpy65ea1648786cdfe855a89073f49a24fa15",
-    "2UGdh0XeC72wcccb12714bdae43194a6a8647ce9a836d9cf9",
-    "2UGdiXdiszEa5rw5c83ff671b0f30e6b45cb159d1b7a8f221",
-    "2UH1q8Mnj1ERdcZf243e8d19a8e05da8998570d64e212cc3a",
-    "2UH1rvpwwnyIqKYf3d2b847c23f1bf100eb78217b4abe399e",
-    "2UH1tCPjVWSuutr98a6d9529fb8c03b457496afe6466ebac0",
-    "2UH1uDTJQKxWMi750e2ad5d114a378275b4f4963b81476824",
-    "2UH1xtruDYkpN6qafcf735210a0d390f38b7934fee7020509",
-    "2UH1yEsOSdMyVgBb79e5d9f7283da3ab24b099772a221c0c1",
-    "2UH200RyjgTPJAyd69e6979481a42076d9715120add383b2f",
-    "2UH21NyLelnPOXN89ef213e06c030d3a20fe91f74ed023cd6",
-    "2UH23g4Tjer24qYda1b38b3bf4995babae59f6ade1b5d80d5",
-    "2UH24rd152tYgA9bfd616f9e0a1eee38c91957e77f7388367",
-    "2UH26buZuikxxt088fe658690e962e79f00f03bae1c9c23d3",
-    "2UH27IyTT0RHycacd91e7dcd3c026b13a34334e2669771ff3",
-    "2UH294cqCAfyXPYa0fb233ea57a4aa4ac1cfa9e767080324b",
-    "2UH2AnTc77FXlItd61132c9805d95deacff876085a8673a9f",
-    "2UH2CfWXJrCUNeVdd80c7e1b03518bbfdcf651e646f5f87d6",
-    "2UH2DCjQeXY976cbc3b9a2f96b6b7c639bce3f82349f4dc3c",
-    "2UH2FdGsdqj9zdBd31de95f2d5f8f661cf0cd4980112ce6d5",
-    "2UH2GTfPxLjEANac954251257e3745ed64d7eeba896e59569",
-    "2UH2IvxBVMIZf7pbc1f54a2696deef605bc9a8b43b5ccc8b8",
-    "2UH2JmJbYEUBMQBa05981954be8f4996b345b0f8b3682cc00",
-    "2UH2L4xZ5oNQ80w85bf6bc0075e1f1e91f9106ad882b73ad3",
-    "2UH2N0WXkIuziiJ071449dfda09a57c174a3271491197bc93",
-    "2UH2PXIv41CFGZi83f01bc2ec164655754bffb8a14e6ec8dd",
-    "2UH2QtMa2NAHKqgff261a53ca86a8f8281fc78b3d18d61829",
-    "2UH2bnJSP3jJh2zcfddf0eaacc03a5a36a586558c9127f6a0",
-    "2UH2cb7PyfPpoxBce3f0a9868715cd7026d8e539aac36d402",
-    "2UH2eKbGQKuIYUXcad0304cb6e5bee0b0c403afdbb45eb29e",
-    "2UH2gUfSx5xbV8v5c1782e505ebd7c097193963887490ccf2",
-    "2UH2hBN40tQzuef302dcb8aa91dbe6770856a538edbfb6673",
-    "2UFyHOdxsID23VMa0518a22c6b683ea3c11c1bdca148d5381",
-    "2UIAHVuiTuotW5oa9a17ea35ffa0b176467ae249cb2e9c21d",
-    "2UIAQdOwydhP3Llb1273217561612b92c0eceaf555cc3726b",
-    "2UIASgiK5dB9KEkaf80d97f9bda1812e1cf8205c3389ff882",
-    "2UIAUNFsUfCNq76c2288e39e2f4bdc49655630ee4ffdee31d",
-    "2UIAeodfkrhgqDo0114e02b8f7c4ec7e64793f17f0de67497",
-    "2UIAf0U41Twctlr77ecbfa2545692634758496b2eb88a170c",
-    "2UIAhSj6AMSpgLM5400cb96e68c36236805887d583fa1c1a8",
-    "2UIAjU7njVoSfKve470901ce3ba2544678cbd216af6700954",
-    "2UIAkQ4DGbDLMB06db1a95369b032405097bcfe53b9b8d444",
-    "2UIAm7L4ziritiqcedf7b01dd720a13d198be7f611936ad80",
-    "2UIAoK9f3FItlml3f95c43bb78d2b15d3e274da5c52fcb5cd",
-    "2UIAp4XWrMM0CET7bf5f8735c0e39a3f82fa9b631d7dde132",
-    "2UIArIu84xpGFuV1b4e825a86352e4bec7b54db59df943bf0",
-    "2UIAsvzIYtc0o6Pa719bbb072a635a0140cee8591aec0e617",
-    "2UIAzLYxMfMvBTTf24fef2bee78bd26ccc8e423b6dbd9d72c",
-    "2UIB0BADWlWBhpUd9b3113aae7aec11928693179b8e97adf7",
-    "2UIB29qsdD8v3Vw8ba73f68bbd03cb6d26b344e49621909fb",
-    "2UIB3HaKYNTplMU1532b53fbe5f3b48698cfae111c1ab6e2d",
-    "2UIB58biba1EdFO560075a79336b620058976b070be297e50",
-    "2UIB6YEl3joxmt513a32fea7091ad7a704774f80640aada78",
-    "2UIB8rlEnDrj6Cv44d507f520ec52fa50046e7a70c30df6c6",
-    "2UIB9J2tCnemabr9e97eff9685066c2072e18a52cfa283aa9",
-    "2UIBB3QQ3H39YFu7d4fd1c778669ef19c8db22610905f23bb",
-    "2UIBC8fgRMkg9wZ41fe0fe622994483be7093f33c02e53835",
-    "2UIBGwfAlxxB6ni8919255b5bc976ec9ff72e0e7ee7f020de",
-    "2UIBHpFuiMsVdXx3403174d9c61f08000e61d09260287e390",
-    "2UIBJUl1ne3E92ya0949e27d64225c71a87e1d01458304c98",
-    "2UIBKJ1ZL4HeXTTef781aa5c7c90ff94cc7d8e04545cf5ff9",
-    "2UIBMTvCwvbW8zyeb1a2c2fc6d628643d2fc7837706f662d4",
-    "2UIBOuJaRF5cBah589a83ba07a2bf4b4ae1e0bede889db139",
-    "2UIBQDGaiPhyK5cc7d8d10689c2376b516809e26a4331bbe7",
-    "2UIBRMkIfmmc5wU462f920ea771e4b0e8c29a96509179becd",
-    "2UIBTMXwg0OXKdLdb313c233f7b40884382642b1336a75475",
-    "2UIBUw762KYlNYe436d56b56b785ae327aea06af5c57b0856",
-    "2UIBWGd7CenkAZP4e84a28fc45390849c04ec824c6b70c4aa",
-    "2UIBX2qFOoT6UfQf0dca472d23a39ee0d2cc679711254df6e",
-    "2UIBZ6iew6q5MjY587ca12d2ba6a8a7dec2887c680e0a295d",
-    "2UIBalRcxjMmhLraa054e3a3fcc66019fa02e4756d40a97ca",
-    "2UIBcJf0KJwjIJCc6aa92098f4b4d9677b277fa08bddaa52f",
-    "2UIBdWa0VtcPa7l291b4497fca8ed7ad26b5c4d5927f54c52",
-    "2UIBfg3C0DBareT4b3bc7b9de04934615085d885e0037c6a9",
-    "2UIBg9igA9Adum65d15c87a1ebdbdd8462f2b769b9e6d0534",
-    "2UIBiv7UFTo86PL7733f37e8662dc5ac1e44fbbfa69938c47",
-    "2UIBjq41So7iISXc9b6488e29439c45ac81ec6655413598b7",
-    "2UIBlZtTVvSSd9Mef4e7f74c7dadf262e366cf0d52a9278e1",
-    "2UIBmotaoPEgiLGb4d8ff65588ad03856bca142e29d10f9d7",
-    "2UIBoXymrMnL6rB7c0bf5d89b1d24423cf95f989c717a93da",
-    "2UIBqLMCQct1MEc93871eac596a18158adf155055ea891b82",
-    "2UIBsC5kqg908ss2b15a06dfd516f5477e644f4970239c2f3",
-    "2UIBtryD9TY1rfLf40876aea895c6b19cfccd6d0423bb1a5a",
-    "2UIBvZWEqIfKMABdb7ad2379d49b5fdb791668c5b8ae2872c",
-    "2UIBwI8LlOkgnR2401030dc085c656433e9d9967c05cb8500",
-    "2UIBzkNUiIo3aqf0fcbbefa77c3d721bcc90d6ea330d21b4b",
-    "2UIC0txEnUKbs2e2011d4dbfcaccbf586e7cfd303ee25846c",
-    "2UIC2RQTla00fnx09c8e8e078bda0be2ee065f87912fcf3ec",
-    "2UIC3HmfnANB85ua2fafaa2b7d15fcddfaf43257ea8207a86",
-    "2UIC5oOQStd9GOdd78704a1c13ede87f1ad076b3a3c5c014a",
-    "2UIC6fQE3KZWxxF95f4c1b1514c6dd3d62ba0670368dbbdf0",
-    "2UIC8HXKajhflGK4f6a4fc65b90703c46867dc5868233557d",
-    "2UIC9N5NnxkvkiXc269dcbc7d2611f06b19dd6ac170a0e6a4",
-    "2UICByRoMWLCFQP85171e81920c71c994e70f565ea94a5af9",
-    "2UICCligGnceGaqb0567585836c440c4d21449a570494dfa6",
-    "2UICEY4jAqkhpY0f3ecd736fb3d2b1df0f72a5ee544acf341",
-    "2UICFz5KhinMtoGa87a2e4a5e156bb3e991297a8f794509c0",
-    "2UICIQvD2zirSr161b5959fe434bec1ebe8e5ba0c62a03892",
-    "2UICJ88uL7vxQXI13806d1cc2aab512c879ea4b47488aff01",
-    "2UICLD7cUOCd06oe31be2d953915e565572bfc9990c96074b",
-    "2UICM5P6tkSm3Qv2adc61218a5a7d6ea2f680320cd4db32ea",
-    "2UICOGF3whhFISb5a4d943b2f658a0948de3321458f644f73",
-    "2UICPYnut7CE37off5de03b2042b14aae1e1c8916eec85f6a",
-    "2UICRMpGaWJQKP954bdcecee3ff7068055ac6c06af038c9e1",
-]
-
-BROWSERLESS_URL = "https://production-sfo.browserless.io/function"
+# ================ CONFIGURAZIONE SCRAPERAPI ====================
+SCRAPERAPI_KEY = "83cbc3a45816261c6a2b003c64ed6288"  # Il tuo token ScraperAPI
 
 # Account EasyHits4U
 EASYHITS_EMAIL = "sandrominori50+Uinrzrgtlqe@gmail.com"
 EASYHITS_PASSWORD = "DDnmVV45!!"
 REFERER_URL = "https://www.easyhits4u.com/?ref=nicolacaporale"
 
-# ================ CONFIGURAZIONE ====================
+# ================ CONFIGURAZIONE PRINCIPALE ====================
 DIM = 64
 REQUEST_TIMEOUT = 15
 ERRORI_DIR = "errori"
 HEALTH_CHECK_PORT = int(os.environ.get('PORT', 10000))
 
-current_key_index = 0
 server_ready = False
-
 dataset = None
 classes_fast = None
 faiss_index = None
@@ -157,84 +38,68 @@ vector_dim = 33
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
-def get_next_key():
-    global current_key_index
-    key = BROWSERLESS_KEYS[current_key_index % len(BROWSERLESS_KEYS)]
-    current_key_index += 1
-    log(f"   🔑 Usando chiave {current_key_index}/{len(BROWSERLESS_KEYS)}: {key[:10]}...")
-    return key
+def get_turnstile_token():
+    """Ottiene il token Turnstile dalla pagina di login via ScraperAPI"""
+    url = "https://www.easyhits4u.com/logon/"
+    api_url = f"http://api.scraperapi.com?api_key={SCRAPERAPI_KEY}&url={requests.utils.quote(url)}&render=true"
+    
+    log("🌐 Richiedo token Turnstile a ScraperAPI...")
+    try:
+        response = requests.get(api_url, timeout=120)
+        if response.status_code != 200:
+            log(f"   ❌ Errore HTTP: {response.status_code}")
+            return None
+        
+        html = response.text
+        match = re.search(r'name="cf-turnstile-response".*?value="([^"]+)"', html, re.IGNORECASE)
+        
+        if match:
+            token = match.group(1)
+            log(f"   ✅ Token ottenuto: {token[:50]}...")
+            return token
+        else:
+            log("   ❌ Token non trovato nella risposta")
+            return None
+    except Exception as e:
+        log(f"   ❌ Errore: {e}")
+        return None
 
 def do_login():
-    log("🔐 Esecuzione login...")
+    """Esegue login usando ScraperAPI per ottenere il token"""
+    log("🔐 Esecuzione login con ScraperAPI...")
     
-    for attempt in range(len(BROWSERLESS_KEYS)):
-        api_key = get_next_key()
-        
-        # Usa /function invece di /chrome/bql
-        url = f"{BROWSERLESS_URL}?token={api_key}"
-        
-        # Codice Puppeteer da eseguire
-        code = f"""
-        module.exports = async ({{ page, context }}) => {{
-            await page.goto('https://www.easyhits4u.com/logon/', {{ waitUntil: 'networkidle', timeout: 180000 }});
-            
-            // Risoluzione Turnstile
-            await page.waitForFunction('typeof turnstile !== "undefined"', {{ timeout: 60000 }});
-            await page.evaluate(() => {{
-                const widget = document.querySelector('.cf-turnstile');
-                if (widget && window.turnstile) {{
-                    window.turnstile.render(widget);
-                }}
-            }});
-            await page.waitForTimeout(10000);
-            
-            // Compila form
-            await page.type('input[name="username"]', '{EASYHITS_EMAIL}', {{ delay: 50 }});
-            await page.type('input[name="password"]', '{EASYHITS_PASSWORD}', {{ delay: 50 }});
-            
-            // Clicca submit
-            await page.click('button[type="submit"], input[type="submit"]');
-            
-            // Attendi navigazione
-            await page.waitForNavigation({{ timeout: 60000 }});
-            
-            // Ottieni cookie
-            const cookies = await page.cookies();
-            return {{ cookies }};
-        }};
-        """
-        
-        try:
-            log(f"   📡 Invio richiesta a Browserless /function...")
-            response = requests.post(url, json={"code": code}, timeout=180)
-            log(f"   📡 Status code: {response.status_code}")
-            
-            if response.status_code != 200:
-                log(f"   ❌ HTTP {response.status_code}")
-                continue
-            
-            data = response.json()
-            if "error" in data:
-                log(f"   ❌ Errore: {data['error']}")
-                continue
-            
-            cookies = data.get("cookies", {})
-            log(f"   🍪 Cookie ricevuti: {list(cookies.keys())}")
-            
-            if 'user_id' in cookies:
-                log(f"   ✅ Login OK! user_id={cookies['user_id']}")
-                return cookies
-            else:
-                log(f"   ❌ user_id non trovato nei cookie")
-                
-        except requests.exceptions.Timeout:
-            log(f"   ❌ Timeout")
-        except Exception as e:
-            log(f"   ❌ Eccezione: {e}")
-            continue
+    token = get_turnstile_token()
+    if not token:
+        log("❌ Token non ottenuto")
+        return None
     
-    log("❌ Login fallito dopo tutti i tentativi")
-    return None
+    session = requests.Session()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Referer': 'https://www.easyhits4u.com/logon/',
+    }
+    
+    data = {
+        'manual': '1',
+        'fb_id': '',
+        'fb_token': '',
+        'google_code': '',
+        'username': EASYHITS_EMAIL,
+        'password': EASYHITS_PASSWORD,
+        'cf-turnstile-response': token,
+    }
+    
+    session.get(REFERER_URL)
+    response = session.post("https://www.easyhits4u.com/logon/", data=data, headers=headers, allow_redirects=True, timeout=30)
+    cookies = session.cookies.get_dict()
+    
+    if 'user_id' in cookies:
+        log(f"   ✅ Login OK! user_id={cookies['user_id']}")
+        return cookies
+    else:
+        log(f"   ❌ Login fallito")
+        return None
 
 # ================ HEALTH CHECK =====================
 class HealthHandler(BaseHTTPRequestHandler):
@@ -299,7 +164,7 @@ def load_dataset_hf():
         log(f"❌ Errore dataset: {e}")
         return False
 
-# ================ FUNZIONI PER IL SURF (invariate) =====================
+# ================ FUNZIONI PER IL SURF =====================
 def centra_figura(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     _, thresh = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY_INV)
@@ -391,7 +256,7 @@ def salva_errore(qpic, img, picmap, labels, chosen_idx, motivo, urlid=None):
 # ================ MAIN =====================
 def main():
     log("=" * 50)
-    log("🚀 Avvio DivellaEasy - Auto Refresh")
+    log("🚀 Avvio DivellaEasy - Versione ScraperAPI")
     
     if not load_dataset_hf():
         return
