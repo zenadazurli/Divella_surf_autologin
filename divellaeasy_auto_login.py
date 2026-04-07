@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# divellaeasy_auto_login.py - Versione SENZA PROXY (funzionante)
+# divellaeasy_auto_login.py - Versione con timeout aumentati
 
 import os
 import time
@@ -14,7 +14,7 @@ from datetime import datetime
 from datasets import load_dataset
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# ================ CHIAVI BROWSERLESS FUNZIONANTI (22 chiavi) ====================
+# ================ CHIAVI BROWSERLESS FUNZIONANTI ====================
 BROWSERLESS_KEYS = [
     "2UG2N7qWFYK8FpG61e2f9913ec3368d2f02f87839db356dcc",
     "2UG2Ovzb5pkwkdua0d400b43082a6ad138fc947b98ad962ba",
@@ -77,12 +77,13 @@ def do_login():
     for attempt in range(len(BROWSERLESS_KEYS)):
         api_key = get_next_key()
         
+        # Timeout aumentati: 120000 ms (120 secondi) per ogni operazione
         query = f"""
 mutation {{
-  goto(url: "https://www.easyhits4u.com/logon/", waitUntil: networkIdle, timeout: 60000) {{
+  goto(url: "https://www.easyhits4u.com/logon/", waitUntil: networkIdle, timeout: 120000) {{
     status
   }}
-  solve(type: cloudflare, timeout: 60000) {{
+  solve(type: cloudflare, timeout: 120000) {{
     solved
     token
     time
@@ -103,17 +104,16 @@ mutation {{
 }}
 """
         
-        # URL SENZA PROXY
         url = f"{BROWSERLESS_URL}?token={api_key}"
         
         try:
-            log(f"   📡 Invio richiesta...")
-            response = requests.post(url, json={"query": query}, timeout=120)
+            log(f"   📡 Invio richiesta (timeout 180s)...")
+            response = requests.post(url, json={"query": query}, timeout=180)
             log(f"   📡 Status: {response.status_code}")
             
             if response.status_code != 200:
                 if response.status_code == 401:
-                    log(f"   ⚠️ Chiave scaduta, passo alla prossima")
+                    log(f"   ⚠️ Chiave scaduta")
                 continue
             
             data = response.json()
@@ -140,6 +140,8 @@ mutation {{
             else:
                 log(f"   ❌ user_id non trovato")
                 
+        except requests.exceptions.Timeout:
+            log(f"   ❌ Timeout (180s)")
         except Exception as e:
             log(f"   ❌ Errore: {e}")
             continue
@@ -301,7 +303,7 @@ def salva_errore(qpic, img, picmap, labels, chosen_idx, motivo, urlid=None):
 
 def main():
     log("=" * 50)
-    log("🚀 Avvio DivellaEasy - SENZA PROXY")
+    log("🚀 Avvio DivellaEasy - Timeout aumentati")
     
     if not load_dataset_hf():
         return
