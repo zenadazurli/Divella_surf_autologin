@@ -91,6 +91,7 @@ def get_next_key():
     global current_key_index
     key = BROWSERLESS_KEYS[current_key_index % len(BROWSERLESS_KEYS)]
     current_key_index += 1
+    log(f"   🔑 Usando chiave {current_key_index}/{len(BROWSERLESS_KEYS)}: {key[:10]}...")
     return key
 
 def do_login():
@@ -124,27 +125,40 @@ def do_login():
         url = f"{BROWSERLESS_URL}?token={api_key}&stealth=true&proxy=residential&proxyCountry=it"
         
         try:
+            log(f"   📡 Invio richiesta a Browserless...")
             response = requests.post(url, json={"query": query}, timeout=120)
+            log(f"   📡 Status code: {response.status_code}")
+            
             if response.status_code != 200:
+                log(f"   ❌ HTTP {response.status_code}")
                 continue
             
             data = response.json()
             if "errors" in data:
+                log(f"   ❌ BQL error: {data['errors']}")
                 continue
             
             solve_info = data.get("data", {}).get("solve", {})
+            log(f"   🛡️ Turnstile solved: {solve_info.get('solved')}")
+            
             if not solve_info.get("solved"):
+                log(f"   ❌ Turnstile non risolto")
                 continue
             
             cookies = response.cookies.get_dict()
+            log(f"   🍪 Cookie ricevuti: {list(cookies.keys())}")
+            
             if 'user_id' in cookies:
                 log(f"   ✅ Login OK! user_id={cookies['user_id']}")
                 return cookies
+            else:
+                log(f"   ❌ user_id non trovato nei cookie")
                 
         except Exception as e:
+            log(f"   ❌ Eccezione: {e}")
             continue
     
-    log("❌ Login fallito")
+    log("❌ Login fallito dopo tutti i tentativi")
     return None
 
 # ================ HEALTH CHECK =====================
