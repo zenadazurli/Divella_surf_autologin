@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# divellaeasy_auto_login.py - Versione con ScraperAPI
+# divellaeasy_auto_login.py - Versione ScraperAPI (NO Browserless)
 
 import os
 import time
@@ -16,7 +16,7 @@ from datasets import load_dataset
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # ================ CONFIGURAZIONE SCRAPERAPI ====================
-SCRAPERAPI_KEY = "83cbc3a45816261c6a2b003c64ed6288"  # Il tuo token ScraperAPI
+SCRAPERAPI_KEY = "83cbc3a45816261c6a2b003c64ed6288"
 
 # Account EasyHits4U
 EASYHITS_EMAIL = "sandrominori50+Uinrzrgtlqe@gmail.com"
