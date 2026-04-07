@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# divellaeasy_auto_login.py - Versione ScraperAPI (NO Browserless)
+# divellaeasy_auto_login.py - Browserless con proxy Bright Data
 
 import os
 import time
@@ -10,26 +10,51 @@ import faiss
 import json
 import gc
 import threading
-import re
 from datetime import datetime
 from datasets import load_dataset
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# ================ CONFIGURAZIONE SCRAPERAPI ====================
-SCRAPERAPI_KEY = "83cbc3a45816261c6a2b003c64ed6288"
+# ================ CHIAVI BROWSERLESS ====================
+BROWSERLESS_KEYS = [
+    "2UG2Kr3Ev0Et10H6375736942b66d1362dab8cc6d6246d5c9",
+    "2UG2LQjFiNAZRk9c8bcd27101634fe29dc0790dc424f20428",
+    "2UG2N7qWFYK8FpG61e2f9913ec3368d2f02f87839db356dcc",
+    "2UG2Ovzb5pkwkdua0d400b43082a6ad138fc947b98ad962ba",
+    "2UG2QjLUmcxfw9Kfc631f82350b42772cfe9291bfbaf2ed27",
+    "2UG2RgbTdpVTYBOf5942d35cd9f3da7b52af0bd115b1b3bdf",
+    "2UG2TlpDxsQJn2Wd1f204756127d4ac2136b41bd01baaa0ca",
+    "2UG2VwLUuefvx2T691bc9e7bd958eaebca5928b349ccdb6b0",
+]
+
+BROWSERLESS_URL = "https://production-sfo.browserless.io/chrome/bql"
+
+# Proxy Bright Data
+PROXY_HOST = "brd.superproxy.io"
+PROXY_PORT = 33335
+PROXY_USER = "brd-customer-hl_a2679b43-zone-residential_proxy1"
+PROXY_PASS = "lwy11di3tbi4"
+
+PROXY_URL = f"http://{PROXY_USER}:{PROXY_PASS}@{PROXY_HOST}:{PROXY_PORT}"
+
+proxies = {
+    "http": PROXY_URL,
+    "https": PROXY_URL
+}
 
 # Account EasyHits4U
 EASYHITS_EMAIL = "sandrominori50+Uinrzrgtlqe@gmail.com"
 EASYHITS_PASSWORD = "DDnmVV45!!"
 REFERER_URL = "https://www.easyhits4u.com/?ref=nicolacaporale"
 
-# ================ CONFIGURAZIONE PRINCIPALE ====================
+# ================ CONFIGURAZIONE ====================
 DIM = 64
 REQUEST_TIMEOUT = 15
 ERRORI_DIR = "errori"
 HEALTH_CHECK_PORT = int(os.environ.get('PORT', 10000))
 
+current_key_index = 0
 server_ready = False
+
 dataset = None
 classes_fast = None
 faiss_index = None
@@ -38,68 +63,88 @@ vector_dim = 33
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
-def get_turnstile_token():
-    """Ottiene il token Turnstile dalla pagina di login via ScraperAPI"""
-    url = "https://www.easyhits4u.com/logon/"
-    api_url = f"http://api.scraperapi.com?api_key={SCRAPERAPI_KEY}&url={requests.utils.quote(url)}&render=true"
-    
-    log("🌐 Richiedo token Turnstile a ScraperAPI...")
-    try:
-        response = requests.get(api_url, timeout=120)
-        if response.status_code != 200:
-            log(f"   ❌ Errore HTTP: {response.status_code}")
-            return None
-        
-        html = response.text
-        match = re.search(r'name="cf-turnstile-response".*?value="([^"]+)"', html, re.IGNORECASE)
-        
-        if match:
-            token = match.group(1)
-            log(f"   ✅ Token ottenuto: {token[:50]}...")
-            return token
-        else:
-            log("   ❌ Token non trovato nella risposta")
-            return None
-    except Exception as e:
-        log(f"   ❌ Errore: {e}")
-        return None
+def get_next_key():
+    global current_key_index
+    key = BROWSERLESS_KEYS[current_key_index % len(BROWSERLESS_KEYS)]
+    current_key_index += 1
+    log(f"   🔑 Usando chiave {current_key_index}/{len(BROWSERLESS_KEYS)}: {key[:10]}...")
+    return key
 
 def do_login():
-    """Esegue login usando ScraperAPI per ottenere il token"""
-    log("🔐 Esecuzione login con ScraperAPI...")
+    log("🔐 Esecuzione login via Browserless (con proxy Bright Data)...")
     
-    token = get_turnstile_token()
-    if not token:
-        log("❌ Token non ottenuto")
-        return None
+    for attempt in range(len(BROWSERLESS_KEYS)):
+        api_key = get_next_key()
+        
+        query = f"""
+mutation {{
+  goto(url: "https://www.easyhits4u.com/logon/", waitUntil: networkIdle, timeout: 120000) {{
+    status
+  }}
+  solve(type: cloudflare, timeout: 120000) {{
+    solved
+    token
+    time
+  }}
+  typeUsername: type(selector: "input[name='username']", text: "{EASYHITS_EMAIL}") {{
+    time
+  }}
+  typePassword: type(selector: "input[name='password']", text: "{EASYHITS_PASSWORD}") {{
+    time
+  }}
+  clickSubmit: click(selector: "button[type='submit'], input[type='submit']", timeout: 60000) {{
+    time
+  }}
+  waitForNavigation(timeout: 60000) {{
+    url
+    status
+  }}
+}}
+"""
+        
+        url = f"{BROWSERLESS_URL}?token={api_key}&stealth=true&proxy=residential&proxyCountry=it"
+        
+        try:
+            log(f"   📡 Invio richiesta a Browserless (via proxy)...")
+            response = requests.post(url, json={"query": query}, timeout=180, proxies=proxies)
+            log(f"   📡 Status code: {response.status_code}")
+            
+            if response.status_code != 200:
+                log(f"   ❌ HTTP {response.status_code}")
+                continue
+            
+            data = response.json()
+            if "errors" in data:
+                log(f"   ❌ BQL error: {data['errors']}")
+                continue
+            
+            solve_info = data.get("data", {}).get("solve", {})
+            log(f"   🛡️ Turnstile solved: {solve_info.get('solved')}")
+            
+            if not solve_info.get("solved"):
+                log(f"   ❌ Turnstile non risolto")
+                continue
+            
+            nav_info = data.get("data", {}).get("waitForNavigation", {})
+            log(f"   🧭 Navigazione: status={nav_info.get('status')}, url={nav_info.get('url')}")
+            
+            cookies = response.cookies.get_dict()
+            log(f"   🍪 Cookie ricevuti: {list(cookies.keys())}")
+            
+            if 'user_id' in cookies:
+                log(f"   ✅ Login OK! user_id={cookies['user_id']}")
+                return cookies
+            else:
+                log(f"   ❌ user_id non trovato nei cookie")
+                
+        except requests.exceptions.Timeout:
+            log(f"   ❌ Timeout")
+        except Exception as e:
+            log(f"   ❌ Eccezione: {e}")
+            continue
     
-    session = requests.Session()
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0',
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Referer': 'https://www.easyhits4u.com/logon/',
-    }
-    
-    data = {
-        'manual': '1',
-        'fb_id': '',
-        'fb_token': '',
-        'google_code': '',
-        'username': EASYHITS_EMAIL,
-        'password': EASYHITS_PASSWORD,
-        'cf-turnstile-response': token,
-    }
-    
-    session.get(REFERER_URL)
-    response = session.post("https://www.easyhits4u.com/logon/", data=data, headers=headers, allow_redirects=True, timeout=30)
-    cookies = session.cookies.get_dict()
-    
-    if 'user_id' in cookies:
-        log(f"   ✅ Login OK! user_id={cookies['user_id']}")
-        return cookies
-    else:
-        log(f"   ❌ Login fallito")
-        return None
+    log("❌ Login fallito dopo tutti i tentativi")
+    return None
 
 # ================ HEALTH CHECK =====================
 class HealthHandler(BaseHTTPRequestHandler):
@@ -253,10 +298,9 @@ def salva_errore(qpic, img, picmap, labels, chosen_idx, motivo, urlid=None):
         json.dump(metadata, f, indent=2)
     log(f"📁 Errore salvato in {folder}")
 
-# ================ MAIN =====================
 def main():
     log("=" * 50)
-    log("🚀 Avvio DivellaEasy - Versione ScraperAPI")
+    log("🚀 Avvio DivellaEasy - Browserless con proxy Bright Data")
     
     if not load_dataset_hf():
         return
