@@ -101,36 +101,38 @@ def do_login():
         api_key = get_next_key()
         
         query = f"""
-        mutation {{
-          goto(url: "https://www.easyhits4u.com/logon/", waitUntil: networkIdle, timeout: 60000) {{
-            status
-          }}
-          solve(type: cloudflare, timeout: 60000) {{
-            solved
-            token
-            time
-          }}
-          typeUsername: type(selector: "input[name='username']", text: "{EASYHITS_EMAIL}") {{
-            time
-          }}
-          typePassword: type(selector: "input[name='password']", text: "{EASYHITS_PASSWORD}") {{
-            time
-          }}
-          clickSubmit: click(selector: "form[action='/logon/'] input[type='submit']") {{
-            time
-          }}
-        }}
-        """
+mutation {{
+  goto(url: "https://www.easyhits4u.com/logon/", waitUntil: networkIdle, timeout: 120000) {{
+    status
+  }}
+  solve(type: cloudflare, timeout: 120000) {{
+    solved
+    token
+    time
+  }}
+  typeUsername: type(selector: "input[name='username']", text: "{EASYHITS_EMAIL}") {{
+    time
+  }}
+  typePassword: type(selector: "input[name='password']", text: "{EASYHITS_PASSWORD}") {{
+    time
+  }}
+  clickSubmit: click(selector: "form[action='/logon/'] input[type='submit']") {{
+    time
+  }}
+}}
+"""
         
         url = f"{BROWSERLESS_URL}?token={api_key}&stealth=true&proxy=residential&proxyCountry=it"
         
         try:
-            log(f"   📡 Invio richiesta a Browserless...")
-            response = requests.post(url, json={"query": query}, timeout=120)
+            log(f"   📡 Invio richiesta a Browserless (timeout 180s)...")
+            response = requests.post(url, json={"query": query}, timeout=180)
             log(f"   📡 Status code: {response.status_code}")
             
             if response.status_code != 200:
                 log(f"   ❌ HTTP {response.status_code}")
+                if response.status_code == 401:
+                    log(f"      ⚠️ Chiave senza crediti!")
                 continue
             
             data = response.json()
@@ -154,6 +156,8 @@ def do_login():
             else:
                 log(f"   ❌ user_id non trovato nei cookie")
                 
+        except requests.exceptions.Timeout:
+            log(f"   ❌ Timeout (180s) - Browserless non risponde")
         except Exception as e:
             log(f"   ❌ Eccezione: {e}")
             continue
