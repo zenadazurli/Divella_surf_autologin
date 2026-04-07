@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# divellaeasy_auto_login.py - Browserless con proxy Bright Data
+# divellaeasy_auto_login.py - Versione SENZA PROXY (funzionante)
 
 import os
 import time
@@ -14,32 +14,33 @@ from datetime import datetime
 from datasets import load_dataset
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# ================ CHIAVI BROWSERLESS ====================
+# ================ CHIAVI BROWSERLESS FUNZIONANTI (22 chiavi) ====================
 BROWSERLESS_KEYS = [
-    "2UG2Kr3Ev0Et10H6375736942b66d1362dab8cc6d6246d5c9",
-    "2UG2LQjFiNAZRk9c8bcd27101634fe29dc0790dc424f20428",
     "2UG2N7qWFYK8FpG61e2f9913ec3368d2f02f87839db356dcc",
     "2UG2Ovzb5pkwkdua0d400b43082a6ad138fc947b98ad962ba",
     "2UG2QjLUmcxfw9Kfc631f82350b42772cfe9291bfbaf2ed27",
     "2UG2RgbTdpVTYBOf5942d35cd9f3da7b52af0bd115b1b3bdf",
     "2UG2TlpDxsQJn2Wd1f204756127d4ac2136b41bd01baaa0ca",
-    "2UG2VwLUuefvx2T691bc9e7bd958eaebca5928b349ccdb6b0",
+    "2UGdbQnmFCJwS9Vd714eb85438cf63d00a8f878a898cfe865",
+    "2UGdcalCbtmQNCt0c0a65e134b1833ed5d77b0c27fec4df7a",
+    "2UGdeyvPnuYf2tm78f5d97e862f004feef3a8e41dfd58b3ef",
+    "2UGdfrLYfztPfpy65ea1648786cdfe855a89073f49a24fa15",
+    "2UGdh0XeC72wcccb12714bdae43194a6a8647ce9a836d9cf9",
+    "2UGdiXdiszEa5rw5c83ff671b0f30e6b45cb159d1b7a8f221",
+    "2UH1q8Mnj1ERdcZf243e8d19a8e05da8998570d64e212cc3a",
+    "2UH1rvpwwnyIqKYf3d2b847c23f1bf100eb78217b4abe399e",
+    "2UH1tCPjVWSuutr98a6d9529fb8c03b457496afe6466ebac0",
+    "2UH1uDTJQKxWMi750e2ad5d114a378275b4f4963b81476824",
+    "2UH1xtruDYkpN6qafcf735210a0d390f38b7934fee7020509",
+    "2UH1yEsOSdMyVgBb79e5d9f7283da3ab24b099772a221c0c1",
+    "2UH200RyjgTPJAyd69e6979481a42076d9715120add383b2f",
+    "2UH21NyLelnPOXN89ef213e06c030d3a20fe91f74ed023cd6",
+    "2UH23g4Tjer24qYda1b38b3bf4995babae59f6ade1b5d80d5",
+    "2UH24rd152tYgA9bfd616f9e0a1eee38c91957e77f7388367",
+    "2UH26buZuikxxt088fe658690e962e79f00f03bae1c9c23d3",
 ]
 
 BROWSERLESS_URL = "https://production-sfo.browserless.io/chrome/bql"
-
-# Proxy Bright Data
-PROXY_HOST = "brd.superproxy.io"
-PROXY_PORT = 33335
-PROXY_USER = "brd-customer-hl_a2679b43-zone-residential_proxy1"
-PROXY_PASS = "lwy11di3tbi4"
-
-PROXY_URL = f"http://{PROXY_USER}:{PROXY_PASS}@{PROXY_HOST}:{PROXY_PORT}"
-
-proxies = {
-    "http": PROXY_URL,
-    "https": PROXY_URL
-}
 
 # Account EasyHits4U
 EASYHITS_EMAIL = "sandrominori50+Uinrzrgtlqe@gmail.com"
@@ -71,17 +72,17 @@ def get_next_key():
     return key
 
 def do_login():
-    log("🔐 Esecuzione login via Browserless (con proxy Bright Data)...")
+    log("🔐 Esecuzione login via Browserless...")
     
     for attempt in range(len(BROWSERLESS_KEYS)):
         api_key = get_next_key()
         
         query = f"""
 mutation {{
-  goto(url: "https://www.easyhits4u.com/logon/", waitUntil: networkIdle, timeout: 120000) {{
+  goto(url: "https://www.easyhits4u.com/logon/", waitUntil: networkIdle, timeout: 60000) {{
     status
   }}
-  solve(type: cloudflare, timeout: 120000) {{
+  solve(type: cloudflare, timeout: 60000) {{
     solved
     token
     time
@@ -102,15 +103,17 @@ mutation {{
 }}
 """
         
-        url = f"{BROWSERLESS_URL}?token={api_key}&stealth=true&proxy=residential&proxyCountry=it"
+        # URL SENZA PROXY
+        url = f"{BROWSERLESS_URL}?token={api_key}"
         
         try:
-            log(f"   📡 Invio richiesta a Browserless (via proxy)...")
-            response = requests.post(url, json={"query": query}, timeout=180, proxies=proxies)
-            log(f"   📡 Status code: {response.status_code}")
+            log(f"   📡 Invio richiesta...")
+            response = requests.post(url, json={"query": query}, timeout=120)
+            log(f"   📡 Status: {response.status_code}")
             
             if response.status_code != 200:
-                log(f"   ❌ HTTP {response.status_code}")
+                if response.status_code == 401:
+                    log(f"   ⚠️ Chiave scaduta, passo alla prossima")
                 continue
             
             data = response.json()
@@ -126,7 +129,7 @@ mutation {{
                 continue
             
             nav_info = data.get("data", {}).get("waitForNavigation", {})
-            log(f"   🧭 Navigazione: status={nav_info.get('status')}, url={nav_info.get('url')}")
+            log(f"   🧭 Navigazione: status={nav_info.get('status')}")
             
             cookies = response.cookies.get_dict()
             log(f"   🍪 Cookie ricevuti: {list(cookies.keys())}")
@@ -135,12 +138,10 @@ mutation {{
                 log(f"   ✅ Login OK! user_id={cookies['user_id']}")
                 return cookies
             else:
-                log(f"   ❌ user_id non trovato nei cookie")
+                log(f"   ❌ user_id non trovato")
                 
-        except requests.exceptions.Timeout:
-            log(f"   ❌ Timeout")
         except Exception as e:
-            log(f"   ❌ Eccezione: {e}")
+            log(f"   ❌ Errore: {e}")
             continue
     
     log("❌ Login fallito dopo tutti i tentativi")
@@ -300,7 +301,7 @@ def salva_errore(qpic, img, picmap, labels, chosen_idx, motivo, urlid=None):
 
 def main():
     log("=" * 50)
-    log("🚀 Avvio DivellaEasy - Browserless con proxy Bright Data")
+    log("🚀 Avvio DivellaEasy - SENZA PROXY")
     
     if not load_dataset_hf():
         return
