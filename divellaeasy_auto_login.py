@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-# login_with_scrape.py - Sintassi corretta per /scrape
+# login_with_function.py - Login con endpoint /function
 
 import requests
-import time
 import json
+import time
 from datetime import datetime
 
 # ================ CHIAVI BROWSERLESS ====================
@@ -32,7 +32,7 @@ BROWSERLESS_KEYS = [
     "2UH26buZuikxxt088fe658690e962e79f00f03bae1c9c23d3",
 ]
 
-BROWSERLESS_URL = "https://production-sfo.browserless.io/scrape"
+BROWSERLESS_URL = "https://production-sfo.browserless.io/function"
 
 # Account EasyHits4U
 EASYHITS_EMAIL = "sandrominori50+Uinrzrgtlqe@gmail.com"
@@ -42,65 +42,42 @@ REFERER_URL = "https://www.easyhits4u.com/?ref=nicolacaporale"
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
-def test_scrape():
-    """Test semplice per vedere se /scrape funziona"""
-    api_key = BROWSERLESS_KEYS[0]
+def get_turnstile_token(api_key):
+    """Ottiene il token usando l'endpoint /function con Puppeteer"""
     url = f"{BROWSERLESS_URL}?token={api_key}"
     
-    # Test con un selettore semplice
-    payload = {
-        "url": "https://www.easyhits4u.com/logon/",
-        "elements": [{"selector": "title"}]
-    }
+    code = f"""
+    module.exports = async ({{ page, context }}) => {{
+        await page.goto('https://www.easyhits4u.com/logon/', {{ waitUntil: 'networkidle', timeout: 60000 }});
+        
+        // Attendi che Turnstile sia risolto
+        await page.waitForFunction(
+            () => {{
+                const input = document.querySelector('input[name="cf-turnstile-response"]');
+                return input && input.value && input.value.length > 0;
+            }},
+            {{ timeout: 60000 }}
+        );
+        
+        const token = await page.$eval('input[name="cf-turnstile-response"]', el => el.value);
+        
+        return {{ token: token }};
+    }};
+    """
     
-    log("📡 Test /scrape con selettore 'title'...")
     try:
-        response = requests.post(url, json=payload, timeout=30)
-        log(f"   Status: {response.status_code}")
-        if response.status_code == 200:
-            data = response.json()
-            log(f"   Risposta: {json.dumps(data, indent=2)[:500]}")
-            return True
-        else:
-            log(f"   Errore: {response.text[:200]}")
-            return False
-    except Exception as e:
-        log(f"   Errore: {e}")
-        return False
-
-def test_extract_token():
-    """Test per estrarre il token Turnstile"""
-    api_key = BROWSERLESS_KEYS[0]
-    url = f"{BROWSERLESS_URL}?token={api_key}"
-    
-    # Usa JavaScript per estrarre il token
-    payload = {
-        "url": "https://www.easyhits4u.com/logon/",
-        "js": """
-            (async () => {
-                await page.waitForSelector('input[name="cf-turnstile-response"]', { timeout: 30000 });
-                const token = await page.$eval('input[name="cf-turnstile-response"]', el => el.value);
-                return { token: token };
-            })();
-        """
-    }
-    
-    log("📡 Test /scrape con JavaScript...")
-    try:
-        response = requests.post(url, json=payload, timeout=60)
-        log(f"   Status: {response.status_code}")
-        if response.status_code == 200:
-            data = response.json()
-            log(f"   Risposta: {json.dumps(data, indent=2)[:500]}")
-            token = data.get("token")
-            if token:
-                log(f"   ✅ Token ottenuto: {token[:50]}...")
-                return token
-        else:
-            log(f"   Errore: {response.text[:200]}")
+        response = requests.post(url, json={"code": code}, timeout=120)
+        if response.status_code != 200:
+            log(f"   ❌ HTTP {response.status_code}")
             return None
+        
+        data = response.json()
+        token = data.get("token")
+        if token and len(token) > 10:
+            return token
+        return None
     except Exception as e:
-        log(f"   Errore: {e}")
+        log(f"   ❌ Errore: {e}")
         return None
 
 def perform_login(token):
@@ -129,31 +106,32 @@ def perform_login(token):
 
 def main():
     print("=" * 60)
-    print("🔬 TEST ENDPOINT /scrape")
+    print("🔬 LOGIN CON ENDPOINT /function")
     print("=" * 60)
     
-    # Test 1: Selettore semplice
-    if not test_scrape():
-        log("❌ Test selettore fallito")
-        return
+    for i, api_key in enumerate(BROWSERLESS_KEYS):
+        log(f"🔑 Test chiave {i+1}/{len(BROWSERLESS_KEYS)}: {api_key[:10]}...")
+        
+        token = get_turnstile_token(api_key)
+        if not token:
+            log(f"   ❌ Token non ottenuto")
+            continue
+        
+        log(f"   ✅ Token ottenuto: {token[:50]}...")
+        
+        cookies = perform_login(token)
+        if 'user_id' in cookies:
+            log(f"   ✅✅✅ LOGIN OK! user_id={cookies['user_id']}")
+            print("\n" + "=" * 60)
+            print("🎉 SUCCESSO!")
+            print(f"   user_id: {cookies['user_id']}")
+            print(f"   sesids: {cookies.get('sesids', 'N/A')}")
+            print("=" * 60)
+            return
+        else:
+            log(f"   ❌ Login fallito - cookie: {list(cookies.keys())}")
     
-    # Test 2: Estrazione token
-    token = test_extract_token()
-    if not token:
-        log("❌ Estrazione token fallita")
-        return
-    
-    # Test 3: Login
-    cookies = perform_login(token)
-    if 'user_id' in cookies:
-        log(f"   ✅✅✅ LOGIN OK! user_id={cookies['user_id']}")
-        print("\n" + "=" * 60)
-        print("🎉 SUCCESSO!")
-        print(f"   user_id: {cookies['user_id']}")
-        print(f"   sesids: {cookies.get('sesids', 'N/A')}")
-        print("=" * 60)
-    else:
-        log(f"   ❌ Login fallito - cookie: {list(cookies.keys())}")
+    print("\n❌ Nessuna chiave ha funzionato")
 
 if __name__ == "__main__":
     main()
