@@ -1,15 +1,38 @@
 #!/usr/bin/env python3
-# test_step_by_step.py - Test ogni singolo passo
+# test_scrape_endpoint.py - Test con endpoint /scrape
 
 import requests
 import time
-import json
+import re
 from datetime import datetime
 
-# ================ CONFIGURAZIONE ====================
-# Usa una sola chiave per test (la prima valida)
-TEST_KEY = "2UG2N7qWFYK8FpG61e2f9913ec3368d2f02f87839db356dcc"
-BROWSERLESS_URL = "https://production-sfo.browserless.io/chrome/bql"
+# ================ CHIAVI BROWSERLESS ====================
+BROWSERLESS_KEYS = [
+    "2UG2N7qWFYK8FpG61e2f9913ec3368d2f02f87839db356dcc",
+    "2UG2Ovzb5pkwkdua0d400b43082a6ad138fc947b98ad962ba",
+    "2UG2QjLUmcxfw9Kfc631f82350b42772cfe9291bfbaf2ed27",
+    "2UG2RgbTdpVTYBOf5942d35cd9f3da7b52af0bd115b1b3bdf",
+    "2UG2TlpDxsQJn2Wd1f204756127d4ac2136b41bd01baaa0ca",
+    "2UGdbQnmFCJwS9Vd714eb85438cf63d00a8f878a898cfe865",
+    "2UGdcalCbtmQNCt0c0a65e134b1833ed5d77b0c27fec4df7a",
+    "2UGdeyvPnuYf2tm78f5d97e862f004feef3a8e41dfd58b3ef",
+    "2UGdfrLYfztPfpy65ea1648786cdfe855a89073f49a24fa15",
+    "2UGdh0XeC72wcccb12714bdae43194a6a8647ce9a836d9cf9",
+    "2UGdiXdiszEa5rw5c83ff671b0f30e6b45cb159d1b7a8f221",
+    "2UH1q8Mnj1ERdcZf243e8d19a8e05da8998570d64e212cc3a",
+    "2UH1rvpwwnyIqKYf3d2b847c23f1bf100eb78217b4abe399e",
+    "2UH1tCPjVWSuutr98a6d9529fb8c03b457496afe6466ebac0",
+    "2UH1uDTJQKxWMi750e2ad5d114a378275b4f4963b81476824",
+    "2UH1xtruDYkpN6qafcf735210a0d390f38b7934fee7020509",
+    "2UH1yEsOSdMyVgBb79e5d9f7283da3ab24b099772a221c0c1",
+    "2UH200RyjgTPJAyd69e6979481a42076d9715120add383b2f",
+    "2UH21NyLelnPOXN89ef213e06c030d3a20fe91f74ed023cd6",
+    "2UH23g4Tjer24qYda1b38b3bf4995babae59f6ade1b5d80d5",
+    "2UH24rd152tYgA9bfd616f9e0a1eee38c91957e77f7388367",
+    "2UH26buZuikxxt088fe658690e962e79f00f03bae1c9c23d3",
+]
+
+BROWSERLESS_URL = "https://production-sfo.browserless.io/scrape"
 
 EASYHITS_EMAIL = "sandrominori50+Uinrzrgtlqe@gmail.com"
 EASYHITS_PASSWORD = "DDnmVV45!!"
@@ -17,155 +40,38 @@ EASYHITS_PASSWORD = "DDnmVV45!!"
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
-def test_connection():
-    """TEST 1: Verifica che la chiave sia valida (connessione base)"""
-    log("📡 TEST 1: Verifica connessione a Browserless...")
-    query = "{ status }"
-    url = f"{BROWSERLESS_URL}?token={TEST_KEY}"
+def test_key(api_key):
+    """Testa una chiave con l'endpoint /scrape"""
+    url = f"{BROWSERLESS_URL}?token={api_key}"
     
-    try:
-        start = time.time()
-        response = requests.post(url, json={"query": query}, timeout=30)
-        elapsed = time.time() - start
-        log(f"   Status: {response.status_code} (tempo: {elapsed:.1f}s)")
-        if response.status_code == 200:
-            log("   ✅ Connessione OK")
-            return True
-        else:
-            log(f"   ❌ Connessione fallita: {response.status_code}")
-            return False
-    except Exception as e:
-        log(f"   ❌ Errore: {e}")
-        return False
-
-def test_solve_only():
-    """TEST 2: Solo risoluzione Turnstile (senza goto)"""
-    log("📡 TEST 2: Solo risoluzione Turnstile...")
-    query = """
-    mutation {
-      solve(type: cloudflare, timeout: 60000) {
-        solved
-        token
-        time
-      }
+    payload = {
+        "url": "https://www.easyhits4u.com/logon/",
+        "elements": [
+            {"selector": "input[name='cf-turnstile-response']", "attr": "value"}
+        ]
     }
-    """
-    url = f"{BROWSERLESS_URL}?token={TEST_KEY}"
     
     try:
         start = time.time()
-        response = requests.post(url, json={"query": query}, timeout=120)
+        response = requests.post(url, json=payload, timeout=60)
         elapsed = time.time() - start
         log(f"   Status: {response.status_code} (tempo: {elapsed:.1f}s)")
         
         if response.status_code != 200:
-            log(f"   ❌ HTTP {response.status_code}")
-            return None
+            return None, response.status_code
         
         data = response.json()
-        if "errors" in data:
-            log(f"   ❌ BQL error: {data['errors']}")
-            return None
-        
-        solve_info = data.get("data", {}).get("solve", {})
-        log(f"   Solved: {solve_info.get('solved')}")
-        
-        if solve_info.get("solved"):
-            token = solve_info.get("token")
-            log(f"   ✅ Token ottenuto: {token[:50]}...")
-            return token
-        else:
-            log(f"   ❌ Token non risolto")
-            return None
+        if data.get("data") and len(data["data"]) > 0:
+            token = data["data"][0].get("value")
+            if token and len(token) > 10:
+                return token, 200
+        return None, 200
     except Exception as e:
         log(f"   ❌ Errore: {e}")
-        return None
+        return None, 0
 
-def test_goto_only():
-    """TEST 3: Solo navigazione (senza solve)"""
-    log("📡 TEST 3: Solo navigazione alla pagina...")
-    query = """
-    mutation {
-      goto(url: "https://www.easyhits4u.com/logon/", waitUntil: networkIdle, timeout: 60000) {
-        status
-      }
-    }
-    """
-    url = f"{BROWSERLESS_URL}?token={TEST_KEY}"
-    
-    try:
-        start = time.time()
-        response = requests.post(url, json={"query": query}, timeout=120)
-        elapsed = time.time() - start
-        log(f"   Status: {response.status_code} (tempo: {elapsed:.1f}s)")
-        
-        if response.status_code != 200:
-            log(f"   ❌ HTTP {response.status_code}")
-            return False
-        
-        data = response.json()
-        if "errors" in data:
-            log(f"   ❌ BQL error: {data['errors']}")
-            return False
-        
-        goto_info = data.get("data", {}).get("goto", {})
-        log(f"   Status: {goto_info.get('status')}")
-        log(f"   ✅ Navigazione OK")
-        return True
-    except Exception as e:
-        log(f"   ❌ Errore: {e}")
-        return False
-
-def test_goto_and_solve():
-    """TEST 4: Navigazione + risoluzione Turnstile"""
-    log("📡 TEST 4: Navigazione + risoluzione Turnstile...")
-    query = """
-    mutation {
-      goto(url: "https://www.easyhits4u.com/logon/", waitUntil: networkIdle, timeout: 60000) {
-        status
-      }
-      solve(type: cloudflare, timeout: 60000) {
-        solved
-        token
-        time
-      }
-    }
-    """
-    url = f"{BROWSERLESS_URL}?token={TEST_KEY}"
-    
-    try:
-        start = time.time()
-        response = requests.post(url, json={"query": query}, timeout=120)
-        elapsed = time.time() - start
-        log(f"   Status: {response.status_code} (tempo: {elapsed:.1f}s)")
-        
-        if response.status_code != 200:
-            log(f"   ❌ HTTP {response.status_code}")
-            return None
-        
-        data = response.json()
-        if "errors" in data:
-            log(f"   ❌ BQL error: {data['errors']}")
-            return None
-        
-        solve_info = data.get("data", {}).get("solve", {})
-        log(f"   Solved: {solve_info.get('solved')}")
-        
-        if solve_info.get("solved"):
-            token = solve_info.get("token")
-            log(f"   ✅ Token ottenuto: {token[:50]}...")
-            return token
-        else:
-            log(f"   ❌ Token non risolto")
-            return None
-    except Exception as e:
-        log(f"   ❌ Errore: {e}")
-        return None
-
-def test_full_login_with_post(token):
-    """TEST 5: Login con POST usando il token"""
-    log("📡 TEST 5: Login con POST...")
-    
+def perform_login(token):
+    """Esegue il login usando il token"""
     session = requests.Session()
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0',
@@ -184,72 +90,44 @@ def test_full_login_with_post(token):
         'cf-turnstile-response': token,
     }
     
-    try:
-        response = session.post("https://www.easyhits4u.com/logon/", data=data, headers=headers, allow_redirects=True, timeout=30)
-        cookies = session.cookies.get_dict()
-        log(f"   Status: {response.status_code}")
-        log(f"   Cookie ricevuti: {list(cookies.keys())}")
-        
-        if 'user_id' in cookies:
-            log(f"   ✅✅✅ LOGIN OK! user_id={cookies['user_id']}")
-            return True
-        else:
-            log(f"   ❌ Login fallito - user_id non trovato")
-            return False
-    except Exception as e:
-        log(f"   ❌ Errore: {e}")
-        return False
+    response = session.post("https://www.easyhits4u.com/logon/", data=data, headers=headers, allow_redirects=True, timeout=30)
+    return session.cookies.get_dict()
 
 def main():
     print("=" * 60)
-    print("🔬 TEST PASSO-PASSO BROWSERLESS")
+    print("🔬 TEST ENDPOINT /scrape")
     print("=" * 60)
     
-    results = {}
+    for i, api_key in enumerate(BROWSERLESS_KEYS):
+        log(f"🔑 Test chiave {i+1}/{len(BROWSERLESS_KEYS)}: {api_key[:10]}...")
+        token, status = test_key(api_key)
+        
+        if status == 401:
+            log(f"   ⚠️ Chiave scaduta")
+            continue
+        elif status != 200:
+            log(f"   ❌ Errore HTTP {status}")
+            continue
+        
+        if not token:
+            log(f"   ❌ Token non trovato")
+            continue
+        
+        log(f"   ✅ Token ottenuto: {token[:50]}...")
+        
+        cookies = perform_login(token)
+        if 'user_id' in cookies:
+            log(f"   ✅✅✅ LOGIN OK! user_id={cookies['user_id']}")
+            print("\n" + "=" * 60)
+            print("🎉 SUCCESSO! Login completato!")
+            print(f"   user_id: {cookies['user_id']}")
+            print(f"   sesids: {cookies.get('sesids', 'N/A')}")
+            print("=" * 60)
+            return
+        else:
+            log(f"   ❌ Login fallito")
     
-    # TEST 1: Connessione base
-    results['connection'] = test_connection()
-    
-    if not results['connection']:
-        log("❌ Test interrotto: connessione fallita")
-        return
-    
-    # TEST 2: Solo solve
-    token = test_solve_only()
-    results['solve_only'] = token is not None
-    
-    # TEST 3: Solo goto
-    results['goto_only'] = test_goto_only()
-    
-    # TEST 4: Goto + Solve
-    token2 = test_goto_and_solve()
-    results['goto_solve'] = token2 is not None
-    
-    # TEST 5: Login con POST (usa token dal test 2 o 4)
-    final_token = token or token2
-    if final_token:
-        results['login_post'] = test_full_login_with_post(final_token)
-    else:
-        results['login_post'] = False
-        log("❌ Nessun token disponibile per il login")
-    
-    # RIEPILOGO
-    print("\n" + "=" * 60)
-    print("📊 RIEPILOGO TEST")
-    print("=" * 60)
-    print(f"TEST 1 - Connessione base:      {'✅' if results['connection'] else '❌'}")
-    print(f"TEST 2 - Solo solve:           {'✅' if results['solve_only'] else '❌'}")
-    print(f"TEST 3 - Solo goto:            {'✅' if results['goto_only'] else '❌'}")
-    print(f"TEST 4 - Goto + solve:         {'✅' if results['goto_solve'] else '❌'}")
-    print(f"TEST 5 - Login con POST:       {'✅' if results['login_post'] else '❌'}")
-    print("=" * 60)
-    
-    if results['login_post']:
-        print("🎉 SUCCESSO! Il login funziona!")
-    else:
-        print("❌ Il login non funziona. Analizza i singoli test per capire dove fallisce.")
-    
-    print("=" * 60)
+    print("\n❌ Nessuna chiave ha funzionato")
 
 if __name__ == "__main__":
     main()
