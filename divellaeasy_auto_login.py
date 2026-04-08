@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# test_scrape_endpoint.py - Test con endpoint /scrape
+# login_with_scrape.py - Login con endpoint /scrape
 
 import requests
 import time
@@ -34,14 +34,16 @@ BROWSERLESS_KEYS = [
 
 BROWSERLESS_URL = "https://production-sfo.browserless.io/scrape"
 
+# Account EasyHits4U
 EASYHITS_EMAIL = "sandrominori50+Uinrzrgtlqe@gmail.com"
 EASYHITS_PASSWORD = "DDnmVV45!!"
+REFERER_URL = "https://www.easyhits4u.com/?ref=nicolacaporale"
 
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
-def test_key(api_key):
-    """Testa una chiave con l'endpoint /scrape"""
+def get_turnstile_token(api_key):
+    """Ottiene il token Turnstile usando l'endpoint /scrape"""
     url = f"{BROWSERLESS_URL}?token={api_key}"
     
     payload = {
@@ -52,23 +54,19 @@ def test_key(api_key):
     }
     
     try:
-        start = time.time()
         response = requests.post(url, json=payload, timeout=60)
-        elapsed = time.time() - start
-        log(f"   Status: {response.status_code} (tempo: {elapsed:.1f}s)")
-        
         if response.status_code != 200:
-            return None, response.status_code
+            return None
         
         data = response.json()
         if data.get("data") and len(data["data"]) > 0:
             token = data["data"][0].get("value")
             if token and len(token) > 10:
-                return token, 200
-        return None, 200
+                return token
+        return None
     except Exception as e:
-        log(f"   ❌ Errore: {e}")
-        return None, 0
+        log(f"      Errore: {e}")
+        return None
 
 def perform_login(token):
     """Esegue il login usando il token"""
@@ -90,27 +88,23 @@ def perform_login(token):
         'cf-turnstile-response': token,
     }
     
+    # Prima visita la pagina referer per impostare i cookie base
+    session.get(REFERER_URL)
+    
     response = session.post("https://www.easyhits4u.com/logon/", data=data, headers=headers, allow_redirects=True, timeout=30)
     return session.cookies.get_dict()
 
 def main():
     print("=" * 60)
-    print("🔬 TEST ENDPOINT /scrape")
+    print("🔬 LOGIN CON ENDPOINT /scrape")
     print("=" * 60)
     
     for i, api_key in enumerate(BROWSERLESS_KEYS):
         log(f"🔑 Test chiave {i+1}/{len(BROWSERLESS_KEYS)}: {api_key[:10]}...")
-        token, status = test_key(api_key)
         
-        if status == 401:
-            log(f"   ⚠️ Chiave scaduta")
-            continue
-        elif status != 200:
-            log(f"   ❌ Errore HTTP {status}")
-            continue
-        
+        token = get_turnstile_token(api_key)
         if not token:
-            log(f"   ❌ Token non trovato")
+            log(f"   ❌ Token non ottenuto")
             continue
         
         log(f"   ✅ Token ottenuto: {token[:50]}...")
@@ -125,7 +119,7 @@ def main():
             print("=" * 60)
             return
         else:
-            log(f"   ❌ Login fallito")
+            log(f"   ❌ Login fallito - cookie ricevuti: {list(cookies.keys())}")
     
     print("\n❌ Nessuna chiave ha funzionato")
 
