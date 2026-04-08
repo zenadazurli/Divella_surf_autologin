@@ -1,24 +1,97 @@
 #!/usr/bin/env python3
-# login_with_function.py - Login con endpoint /function
+# divellaeasy_auto_login.py - Versione con 107 chiavi valide
 
-import requests
-import json
+import os
 import time
+import requests
+import numpy as np
+import cv2
+import faiss
+import json
+import gc
+import threading
 from datetime import datetime
+from datasets import load_dataset
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# ================ CHIAVI BROWSERLESS ====================
+# ================ CHIAVI BROWSERLESS VALIDE (107 chiavi) ====================
 BROWSERLESS_KEYS = [
-    "2UG2N7qWFYK8FpG61e2f9913ec3368d2f02f87839db356dcc",
-    "2UG2Ovzb5pkwkdua0d400b43082a6ad138fc947b98ad962ba",
+    # Primo set (9 chiavi)
+    "2UB2mJ8Pu4KvAwya658a33c2af825bbe2f707870ba088d746",
+    "2UB6xXPVzalwmFrdf68265d93b745fd095899467d21a32326",
+    "2UB72G0jNe5RsxL6b2e845d0b94bb6897966e88f662bc99a7",
+    "2UCe01EH3vUJLnP6d3f028660d770ed840a0c6b05b6dcf71e",
+    "2UCyusO830dLAcyda29244c83c2bfa0217728908ff8810c42",
+    "2UD3pQCcge39YhQce5797773c8508515a295a1298d0105b42",
+    "2UDOf1dHJeNmeOl0a373211ade4280ba7e212cde93dfc9e20",
+    "2UDOnpiBIFokFEBcb1017abfdd901756272f2ff182c4a9f32",
+    "2UDPWeUf62vB2I8aa37152a5b515e5360c127d669b813f23c",
+    
+    # Secondo set (98 chiavi)
     "2UG2QjLUmcxfw9Kfc631f82350b42772cfe9291bfbaf2ed27",
     "2UG2RgbTdpVTYBOf5942d35cd9f3da7b52af0bd115b1b3bdf",
     "2UG2TlpDxsQJn2Wd1f204756127d4ac2136b41bd01baaa0ca",
     "2UGdbQnmFCJwS9Vd714eb85438cf63d00a8f878a898cfe865",
-    "2UGdcalCbtmQNCt0c0a65e134b1833ed5d77b0c27fec4df7a",
-    "2UGdeyvPnuYf2tm78f5d97e862f004feef3a8e41dfd58b3ef",
-    "2UGdfrLYfztPfpy65ea1648786cdfe855a89073f49a24fa15",
-    "2UGdh0XeC72wcccb12714bdae43194a6a8647ce9a836d9cf9",
-    "2UGdiXdiszEa5rw5c83ff671b0f30e6b45cb159d1b7a8f221",
+    "2UFyHOdxsID23VMa0518a22c6b683ea3c11c1bdca148d5381",
+    "2UIAf0U41Twctlr77ecbfa2545692634758496b2eb88a170c",
+    "2UIAhSj6AMSpgLM5400cb96e68c36236805887d583fa1c1a8",
+    "2UIAkQ4DGbDLMB06db1a95369b032405097bcfe53b9b8d444",
+    "2UIAoK9f3FItlml3f95c43bb78d2b15d3e274da5c52fcb5cd",
+    "2UIArIu84xpGFuV1b4e825a86352e4bec7b54db59df943bf0",
+    "2UIAsvzIYtc0o6Pa719bbb072a635a0140cee8591aec0e617",
+    "2UIAzLYxMfMvBTTf24fef2bee78bd26ccc8e423b6dbd9d72c",
+    "2UIB0BADWlWBhpUd9b3113aae7aec11928693179b8e97adf7",
+    "2UIB8rlEnDrj6Cv44d507f520ec52fa50046e7a70c30df6c6",
+    "2UIB9J2tCnemabr9e97eff9685066c2072e18a52cfa283aa9",
+    "2UIBB3QQ3H39YFu7d4fd1c778669ef19c8db22610905f23bb",
+    "2UIBC8fgRMkg9wZ41fe0fe622994483be7093f33c02e53835",
+    "2UIBGwfAlxxB6ni8919255b5bc976ec9ff72e0e7ee7f020de",
+    "2UIBHpFuiMsVdXx3403174d9c61f08000e61d09260287e390",
+    "2UIBJUl1ne3E92ya0949e27d64225c71a87e1d01458304c98",
+    "2UIBKJ1ZL4HeXTTef781aa5c7c90ff94cc7d8e04545cf5ff9",
+    "2UIBMTvCwvbW8zyeb1a2c2fc6d628643d2fc7837706f662d4",
+    "2UIBOuJaRF5cBah589a83ba07a2bf4b4ae1e0bede889db139",
+    "2UIBQDGaiPhyK5cc7d8d10689c2376b516809e26a4331bbe7",
+    "2UIBRMkIfmmc5wU462f920ea771e4b0e8c29a96509179becd",
+    "2UIBTMXwg0OXKdLdb313c233f7b40884382642b1336a75475",
+    "2UIBUw762KYlNYe436d56b56b785ae327aea06af5c57b0856",
+    "2UIBWGd7CenkAZP4e84a28fc45390849c04ec824c6b70c4aa",
+    "2UIBX2qFOoT6UfQf0dca472d23a39ee0d2cc679711254df6e",
+    "2UIBZ6iew6q5MjY587ca12d2ba6a8a7dec2887c680e0a295d",
+    "2UIBalRcxjMmhLraa054e3a3fcc66019fa02e4756d40a97ca",
+    "2UIBcJf0KJwjIJCc6aa92098f4b4d9677b277fa08bddaa52f",
+    "2UIBdWa0VtcPa7l291b4497fca8ed7ad26b5c4d5927f54c52",
+    "2UIBfg3C0DBareT4b3bc7b9de04934615085d885e0037c6a9",
+    "2UIBg9igA9Adum65d15c87a1ebdbdd8462f2b769b9e6d0534",
+    "2UIBiv7UFTo86PL7733f37e8662dc5ac1e44fbbfa69938c47",
+    "2UIBjq41So7iISXc9b6488e29439c45ac81ec6655413598b7",
+    "2UIBlZtTVvSSd9Mef4e7f74c7dadf262e366cf0d52a9278e1",
+    "2UIBmotaoPEgiLGb4d8ff65588ad03856bca142e29d10f9d7",
+    "2UIBoXymrMnL6rB7c0bf5d89b1d24423cf95f989c717a93da",
+    "2UIBqLMCQct1MEc93871eac596a18158adf155055ea891b82",
+    "2UIBsC5kqg908ss2b15a06dfd516f5477e644f4970239c2f3",
+    "2UIBtryD9TY1rfLf40876aea895c6b19cfccd6d0423bb1a5a",
+    "2UIBvZWEqIfKMABdb7ad2379d49b5fdb791668c5b8ae2872c",
+    "2UIBwI8LlOkgnR2401030dc085c656433e9d9967c05cb8500",
+    "2UIBzkNUiIo3aqf0fcbbefa77c3d721bcc90d6ea330d21b4b",
+    "2UIC0txEnUKbs2e2011d4dbfcaccbf586e7cfd303ee25846c",
+    "2UIC2RQTla00fnx09c8e8e078bda0be2ee065f87912fcf3ec",
+    "2UIC3HmfnANB85ua2fafaa2b7d15fcddfaf43257ea8207a86",
+    "2UIC5oOQStd9GOdd78704a1c13ede87f1ad076b3a3c5c014a",
+    "2UIC6fQE3KZWxxF95f4c1b1514c6dd3d62ba0670368dbbdf0",
+    "2UIC8HXKajhflGK4f6a4fc65b90703c46867dc5868233557d",
+    "2UIC9N5NnxkvkiXc269dcbc7d2611f06b19dd6ac170a0e6a4",
+    "2UICByRoMWLCFQP85171e81920c71c994e70f565ea94a5af9",
+    "2UICCligGnceGaqb0567585836c440c4d21449a570494dfa6",
+    "2UICEY4jAqkhpY0f3ecd736fb3d2b1df0f72a5ee544acf341",
+    "2UICFz5KhinMtoGa87a2e4a5e156bb3e991297a8f794509c0",
+    "2UICIQvD2zirSr161b5959fe434bec1ebe8e5ba0c62a03892",
+    "2UICJ88uL7vxQXI13806d1cc2aab512c879ea4b47488aff01",
+    "2UICLD7cUOCd06oe31be2d953915e565572bfc9990c96074b",
+    "2UICM5P6tkSm3Qv2adc61218a5a7d6ea2f680320cd4db32ea",
+    "2UICOGF3whhFISb5a4d943b2f658a0948de3321458f644f73",
+    "2UICPYnut7CE37off5de03b2042b14aae1e1c8916eec85f6a",
+    "2UICRMpGaWJQKP954bdcecee3ff7068055ac6c06af038c9e1",
     "2UH1q8Mnj1ERdcZf243e8d19a8e05da8998570d64e212cc3a",
     "2UH1rvpwwnyIqKYf3d2b847c23f1bf100eb78217b4abe399e",
     "2UH1tCPjVWSuutr98a6d9529fb8c03b457496afe6466ebac0",
@@ -30,6 +103,29 @@ BROWSERLESS_KEYS = [
     "2UH23g4Tjer24qYda1b38b3bf4995babae59f6ade1b5d80d5",
     "2UH24rd152tYgA9bfd616f9e0a1eee38c91957e77f7388367",
     "2UH26buZuikxxt088fe658690e962e79f00f03bae1c9c23d3",
+    "2UH27IyTT0RHycacd91e7dcd3c026b13a34334e2669771ff3",
+    "2UH294cqCAfyXPYa0fb233ea57a4aa4ac1cfa9e767080324b",
+    "2UH2AnTc77FXlItd61132c9805d95deacff876085a8673a9f",
+    "2UH2CfWXJrCUNeVdd80c7e1b03518bbfdcf651e646f5f87d6",
+    "2UH2DCjQeXY976cbc3b9a2f96b6b7c639bce3f82349f4dc3c",
+    "2UH2FdGsdqj9zdBd31de95f2d5f8f661cf0cd4980112ce6d5",
+    "2UH2GTfPxLjEANac954251257e3745ed64d7eeba896e59569",
+    "2UH2IvxBVMIZf7pbc1f54a2696deef605bc9a8b43b5ccc8b8",
+    "2UH2JmJbYEUBMQBa05981954be8f4996b345b0f8b3682cc00",
+    "2UH2L4xZ5oNQ80w85bf6bc0075e1f1e91f9106ad882b73ad3",
+    "2UH2N0WXkIuziiJ071449dfda09a57c174a3271491197bc93",
+    "2UH2PXIv41CFGZi83f01bc2ec164655754bffb8a14e6ec8dd",
+    "2UH2QtMa2NAHKqgff261a53ca86a8f8281fc78b3d18d61829",
+    "2UH2bnJSP3jJh2zcfddf0eaacc03a5a36a586558c9127f6a0",
+    "2UH2cb7PyfPpoxBce3f0a9868715cd7026d8e539aac36d402",
+    "2UH2eKbGQKuIYUXcad0304cb6e5bee0b0c403afdbb45eb29e",
+    "2UH2gUfSx5xbV8v5c1782e505ebd7c097193963887490ccf2",
+    "2UH2hBN40tQzuef302dcb8aa91dbe6770856a538edbfb6673",
+    "2UGdcalCbtmQNCt0c0a65e134b1833ed5d77b0c27fec4df7a",
+    "2UGdeyvPnuYf2tm78f5d97e862f004feef3a8e41dfd58b3ef",
+    "2UGdfrLYfztPfpy65ea1648786cdfe855a89073f49a24fa15",
+    "2UGdh0XeC72wcccb12714bdae43194a6a8647ce9a836d9cf9",
+    "2UGdiXdiszEa5rw5c83ff671b0f30e6b45cb159d1b7a8f221",
 ]
 
 BROWSERLESS_URL = "https://production-sfo.browserless.io/function"
@@ -39,8 +135,29 @@ EASYHITS_EMAIL = "sandrominori50+Uinrzrgtlqe@gmail.com"
 EASYHITS_PASSWORD = "DDnmVV45!!"
 REFERER_URL = "https://www.easyhits4u.com/?ref=nicolacaporale"
 
+# ================ CONFIGURAZIONE ====================
+DIM = 64
+REQUEST_TIMEOUT = 15
+ERRORI_DIR = "errori"
+HEALTH_CHECK_PORT = int(os.environ.get('PORT', 10000))
+
+current_key_index = 0
+server_ready = False
+
+dataset = None
+classes_fast = None
+faiss_index = None
+vector_dim = 33
+
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
+
+def get_next_key():
+    global current_key_index
+    key = BROWSERLESS_KEYS[current_key_index % len(BROWSERLESS_KEYS)]
+    current_key_index += 1
+    log(f"   🔑 Usando chiave {current_key_index}/{len(BROWSERLESS_KEYS)}: {key[:10]}...")
+    return key
 
 def get_turnstile_token(api_key):
     """Ottiene il token usando l'endpoint /function con Puppeteer"""
@@ -68,7 +185,6 @@ def get_turnstile_token(api_key):
     try:
         response = requests.post(url, json={"code": code}, timeout=120)
         if response.status_code != 200:
-            log(f"   ❌ HTTP {response.status_code}")
             return None
         
         data = response.json()
@@ -104,13 +220,11 @@ def perform_login(token):
     response = session.post("https://www.easyhits4u.com/logon/", data=data, headers=headers, allow_redirects=True, timeout=30)
     return session.cookies.get_dict()
 
-def main():
-    print("=" * 60)
-    print("🔬 LOGIN CON ENDPOINT /function")
-    print("=" * 60)
+def do_login():
+    log("🔐 Esecuzione login via Browserless...")
     
-    for i, api_key in enumerate(BROWSERLESS_KEYS):
-        log(f"🔑 Test chiave {i+1}/{len(BROWSERLESS_KEYS)}: {api_key[:10]}...")
+    for attempt in range(len(BROWSERLESS_KEYS)):
+        api_key = get_next_key()
         
         token = get_turnstile_token(api_key)
         if not token:
@@ -121,17 +235,258 @@ def main():
         
         cookies = perform_login(token)
         if 'user_id' in cookies:
-            log(f"   ✅✅✅ LOGIN OK! user_id={cookies['user_id']}")
-            print("\n" + "=" * 60)
-            print("🎉 SUCCESSO!")
-            print(f"   user_id: {cookies['user_id']}")
-            print(f"   sesids: {cookies.get('sesids', 'N/A')}")
-            print("=" * 60)
-            return
+            log(f"   ✅✅✅ Login OK! user_id={cookies['user_id']}")
+            return cookies
         else:
             log(f"   ❌ Login fallito - cookie: {list(cookies.keys())}")
     
-    print("\n❌ Nessuna chiave ha funzionato")
+    log("❌ Login fallito dopo tutti i tentativi")
+    return None
+
+# ================ HEALTH CHECK =====================
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/health':
+            self.send_response(200)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            self.wfile.write(b'OK')
+        else:
+            self.send_response(404)
+    def log_message(self, format, *args):
+        pass
+
+def run_health_server():
+    global server_ready
+    try:
+        server = HTTPServer(('0.0.0.0', HEALTH_CHECK_PORT), HealthHandler)
+        server_ready = True
+        log(f"🏥 Health check server avviato sulla porta {HEALTH_CHECK_PORT}")
+        server.serve_forever()
+    except Exception as e:
+        log(f"❌ ERRORE health check: {e}")
+        server_ready = False
+
+health_thread = threading.Thread(target=run_health_server, daemon=True)
+health_thread.start()
+timeout = 10
+while not server_ready and timeout > 0:
+    time.sleep(0.5)
+    timeout -= 0.5
+
+# ================ DATASET =====================
+def load_dataset_hf():
+    global dataset, classes_fast, faiss_index
+    log("📥 Caricamento dataset...")
+    try:
+        dataset = load_dataset("zenadazurli/easyhits4u-dataset", split="train", token=None)
+        log(f"✅ Dataset caricato: {len(dataset)} vettori")
+        class_names = dataset.features['y'].names
+        classes_fast = {i: name for i, name in enumerate(class_names)}
+        
+        X_list = []
+        batch_size = 500
+        for i in range(0, len(dataset), batch_size):
+            batch = dataset[i:i+batch_size]
+            X_list.append(np.array(batch['X'], dtype=np.float32))
+        
+        X_all = np.vstack(X_list)
+        nlist = 100
+        m = 3
+        d = vector_dim
+        quantizer = faiss.IndexFlatL2(d)
+        index = faiss.IndexIVFPQ(quantizer, d, nlist, m, 8)
+        index.train(X_all)
+        index.add(X_all)
+        faiss_index = index
+        del X_list, X_all
+        gc.collect()
+        return True
+    except Exception as e:
+        log(f"❌ Errore dataset: {e}")
+        return False
+
+# ================ FUNZIONI PER IL SURF =====================
+def centra_figura(image):
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY_INV)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return cv2.resize(image, (DIM, DIM))
+    cnt = max(contours, key=cv2.contourArea)
+    x, y, w, h = cv2.boundingRect(cnt)
+    crop = image[y:y+h, x:x+w]
+    return cv2.resize(crop, (DIM, DIM))
+
+def estrai_descrittori(img):
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY_INV)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    circularity = aspect_ratio = 0.0
+    if contours:
+        cnt = max(contours, key=cv2.contourArea)
+        peri = cv2.arcLength(cnt, True)
+        area = cv2.contourArea(cnt)
+        if peri != 0:
+            circularity = 4.0 * np.pi * area / (peri * peri)
+        x, y, w, h = cv2.boundingRect(cnt)
+        aspect_ratio = float(w)/h if h != 0 else 0.0
+    moments = cv2.moments(thresh)
+    hu = cv2.HuMoments(moments).flatten().tolist()
+    h, w = img.shape[:2]
+    cx, cy = w//2, h//2
+    raggi = [int(min(h,w)*r) for r in (0.2, 0.4, 0.6, 0.8)]
+    radiale = []
+    for r in raggi:
+        mask = np.zeros((h,w), np.uint8)
+        cv2.circle(mask, (cx,cy), r, 255, -1)
+        mean = cv2.mean(img, mask=mask)[:3]
+        radiale.extend([m/255.0 for m in mean])
+    spaziale = []
+    quadranti = [(0,0,cx,cy), (cx,0,w,cy), (0,cy,cx,h), (cx,cy,w,h)]
+    for (x1,y1,x2,y2) in quadranti:
+        roi = img[y1:y2, x1:x2]
+        if roi.size > 0:
+            mean = cv2.mean(roi)[:3]
+            spaziale.extend([m/255.0 for m in mean])
+    vettore = radiale + spaziale + [circularity, aspect_ratio] + hu
+    return np.array(vettore, dtype=float)
+
+def get_features(img):
+    img_centrata = centra_figura(img)
+    return estrai_descrittori(img_centrata)
+
+def predict(img_crop):
+    if img_crop is None or img_crop.size == 0:
+        return None
+    features = get_features(img_crop).astype(np.float32).reshape(1, -1)
+    distances, indices = faiss_index.search(features, 1)
+    best_idx = indices[0][0]
+    true_label_idx = dataset['y'][best_idx]
+    return classes_fast.get(int(true_label_idx), "errore")
+
+def crop_safe(img, coords):
+    try:
+        x1, y1, x2, y2 = map(int, coords.split(","))
+    except:
+        return None
+    h, w = img.shape[:2]
+    x1 = max(0, min(w-1, x1))
+    x2 = max(0, min(w, x2))
+    y1 = max(0, min(h-1, y1))
+    y2 = max(0, min(h, y2))
+    if x2 <= x1 or y2 <= y1:
+        return None
+    return img[y1:y2, x1:x2]
+
+def salva_errore(qpic, img, picmap, labels, chosen_idx, motivo, urlid=None):
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    folder = os.path.join(ERRORI_DIR, f"{timestamp}_{qpic}")
+    os.makedirs(folder, exist_ok=True)
+    full_path = os.path.join(folder, "full.jpg")
+    cv2.imwrite(full_path, img)
+    for i, p in enumerate(picmap):
+        crop = crop_safe(img, p.get("coords", ""))
+        if crop is not None and crop.size > 0:
+            crop_path = os.path.join(folder, f"crop_{i+1}.jpg")
+            cv2.imwrite(crop_path, crop)
+    metadata = {"timestamp": timestamp, "qpic": qpic, "urlid": urlid, "motivo": motivo}
+    with open(os.path.join(folder, "metadata.json"), "w") as f:
+        json.dump(metadata, f, indent=2)
+    log(f"📁 Errore salvato in {folder}")
+
+def main():
+    log("=" * 50)
+    log("🚀 Avvio DivellaEasy - 107 chiavi valide")
+    
+    if not load_dataset_hf():
+        return
+    
+    while True:
+        cookies = do_login()
+        if not cookies:
+            log("❌ Login fallito, riprovo tra 60 secondi...")
+            time.sleep(60)
+            continue
+        
+        COOKIE_STRING = f"sesids={cookies.get('sesids', '')}; user_id={cookies.get('user_id', '')}"
+        log(f"🍪 Cookie: {COOKIE_STRING}")
+        
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Cookie": COOKIE_STRING
+        }
+        session = requests.Session()
+        captcha_counter = 0
+        
+        while True:
+            try:
+                r = session.post(
+                    "https://www.easyhits4u.com/surf/?ajax=1&try=1",
+                    headers=headers, verify=False, timeout=REQUEST_TIMEOUT
+                )
+                
+                if r.status_code != 200:
+                    log(f"❌ Status {r.status_code} - Cookie scaduti?")
+                    break
+                
+                data = r.json()
+                urlid = data.get("surfses", {}).get("urlid")
+                qpic = data.get("surfses", {}).get("qpic")
+                seconds = int(data.get("surfses", {}).get("seconds", 20))
+                picmap = data.get("picmap", [])
+                
+                if not urlid or not qpic or not picmap or len(picmap) < 5:
+                    log(f"❌ Dati incompleti - Cookie scaduti?")
+                    break
+                
+                img_data = session.get(f"https://www.easyhits4u.com/simg/{qpic}.jpg", verify=False).content
+                img = cv2.imdecode(np.frombuffer(img_data, np.uint8), cv2.IMREAD_COLOR)
+                crops = [crop_safe(img, p.get("coords", "")) for p in picmap]
+                labels = [predict(c) for c in crops]
+                log(f"Labels: {labels}")
+                
+                seen = {}
+                chosen_idx = None
+                for i, label in enumerate(labels):
+                    if label and label != "errore":
+                        if label in seen:
+                            chosen_idx = seen[label]
+                            break
+                        seen[label] = i
+                
+                if chosen_idx is None:
+                    log("❌ Nessun duplicato")
+                    salva_errore(qpic, img, picmap, labels, None, "nessun_duplicato", urlid)
+                    break
+                
+                time.sleep(seconds)
+                word = picmap[chosen_idx]["value"]
+                resp = session.get(
+                    f"https://www.easyhits4u.com/surf/?f=surf&urlid={urlid}&surftype=2"
+                    f"&ajax=1&word={word}&screen_width=1024&screen_height=768",
+                    headers=headers, verify=False
+                )
+                
+                if resp.json().get("warning") == "wrong_choice":
+                    log("❌ Wrong choice")
+                    salva_errore(qpic, img, picmap, labels, chosen_idx, "wrong_choice", urlid)
+                    break
+                
+                captcha_counter += 1
+                log(f"✅ OK - indice {chosen_idx} - Totale: {captcha_counter}")
+                
+                if captcha_counter % 10 == 0:
+                    gc.collect()
+                
+                time.sleep(2)
+                
+            except Exception as e:
+                log(f"❌ Errore: {e}")
+                break
+        
+        log("🔄 Rinnovo sessione...")
+        time.sleep(5)
 
 if __name__ == "__main__":
     main()
